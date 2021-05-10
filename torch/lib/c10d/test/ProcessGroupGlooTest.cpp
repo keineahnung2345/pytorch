@@ -204,6 +204,28 @@ std::vector<std::vector<at::Tensor>> waitWork(
   return copyTensors(outputTensors);
 }
 
+std::vector<std::vector<at::Tensor>> waitFuture(
+    std::vector<c10::intrusive_ptr<c10d::ProcessGroup::Work>> works) {
+  std::vector<std::vector<at::Tensor>> outputTensors;
+  for (auto& work : works) {
+    auto fut = work->getFuture();
+    try {
+      fut->wait();
+    } catch (const std::exception& ex) {
+      std::cerr << "Exception received: " << ex.what() << std::endl;
+    }
+    auto result = fut->value();
+    if (result.isNone()) {
+      outputTensors.emplace_back();
+    } else if (result.isTensorList()) {
+      outputTensors.emplace_back(result.toTensorVector());
+    } else {
+      throw std::runtime_error("future result should be tensor list or none");
+    }
+  }
+  return copyTensors(outputTensors);
+}
+
 void checkProfiledEvents(
     const thread_event_lists& event_lists,
     const char* expected_profile_str,
@@ -308,7 +330,7 @@ void testBroadcast(const std::string& path, const at::DeviceType b) {
       }
 
       // Wait for work to complete
-      auto outputs = waitWork(work);
+      auto outputs = waitFuture(work);
 
       auto event_lists = disableProfilerLegacy();
       checkProfiledEvents(
@@ -425,7 +447,7 @@ void testBarrier(const std::string& path) {
   }
 
   // Wait for work to complete
-  waitWork(work);
+  waitFuture(work);
 
   auto event_lists = disableProfilerLegacy();
   const char * GLOO_STR = "gloo:barrier";
