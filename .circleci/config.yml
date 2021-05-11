@@ -498,7 +498,7 @@ jobs:
           echo ${COMMAND} > ./command.sh && unbuffer bash ./command.sh | ts
 
           # Copy dist folder back
-          docker cp $id:/var/lib/jenkins/workspace/dist /home/circleci/project/. || echo "Dist folder not found"
+          docker cp $id:/var/lib/jenkins/workspace /home/circleci/project/. || echo "workspace folder not found"
 
           # Push intermediate Docker image for next phase to use
           if [ -z "${BUILD_ONLY}" ]; then
@@ -534,7 +534,7 @@ jobs:
             time docker push ${COMMIT_DOCKER_IMAGE}
           fi
     - store_artifacts:
-        path: /home/circleci/project/dist
+        path: /home/circleci/project/workspace
 
   pytorch_linux_test:
     <<: *pytorch_params
